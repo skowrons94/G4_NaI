@@ -1,0 +1,31 @@
+# Macro file for "rdecay02.cc"
+
+/control/verbose 2
+/run/verbose 1
+
+/run/initialize
+
+/process/had/rdm/thresholdForVeryLongDecayTime 1.0e+60 year
+/rdecay01/fullChain true
+
+/gun/particle ion
+/gun/ion 82 210
+
+/analysis/setFileName 210Pb.root
+/analysis/h1/set 1  1000  0. 4000 keV	#e+ e-
+/analysis/h1/set 2  1000  0. 4000 keV	#neutrino
+/analysis/h1/set 3  1000  0. 4000 keV	#gamma
+/analysis/h1/set 4  1000  0. 10   MeV	#alpha
+/analysis/h1/set 5  1000  0. 200  keV	#recoil ion
+/analysis/h1/set 6  1000  0  10   MeV	#EkinTot (Q)
+/analysis/h1/set 7  1000  0. 300  MeV	#P balance
+/analysis/h1/set 8  1000  0. 1.e+11 y	#time of life
+/analysis/h1/set 10  2000  0. 20. MeV  	#EvisTot
+/analysis/h1/set 11  2000  0  20   MeV	#EkinTot (Q)
+/analysis/h1/set 12  2000  0  20   MeV	#EkinTot (Q)
+/analysis/h1/set 13  2000  0  20   MeV	#EkinTot (Q)
+/analysis/h1/set 14  2000  0  20   MeV	#EkinTot (Q)
+/analysis/h1/set 15  2000  0  20   MeV	#EkinTot (Q)
+
+/run/printProgress 1000
+/run/beamOn 1000000
