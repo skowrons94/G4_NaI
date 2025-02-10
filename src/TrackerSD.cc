@@ -1,142 +1,157 @@
-//
-// ********************************************************************
-// * License and Disclaimer                                           *
-// *                                                                  *
-// * The  Geant4 software  is  copyright of the Copyright Holders  of *
-// * the Geant4 Collaboration.  It is provided  under  the terms  and *
-// * conditions of the Geant4 Software License,  included in the file *
-// * LICENSE and available at  http://cern.ch/geant4/license .  These *
-// * include a list of copyright holders.                             *
-// *                                                                  *
-// * Neither the authors of this software system, nor their employing *
-// * institutes,nor the agencies providing financial support for this *
-// * work  make  any representation or  warranty, express or implied, *
-// * regarding  this  software system or assume any liability for its *
-// * use.  Please see the license in the file  LICENSE  and URL above *
-// * for the full disclaimer and the limitation of liability.         *
-// *                                                                  *
-// * This  code  implementation is the result of  the  scientific and *
-// * technical work of the GEANT4 collaboration.                      *
-// * By using,  copying,  modifying or  distributing the software (or *
-// * any work based  on the software)  you  agree  to acknowledge its *
-// * use  in  resulting  scientific  publications,  and indicate your *
-// * acceptance of all terms of the Geant4 Software license.          *
-// ********************************************************************
-//
-//
-/// \file B2TrackerSD.cc
-/// \brief Implementation of the B2TrackerSD class
-
 #include "TrackerSD.hh"
 #include "G4HCofThisEvent.hh"
 #include "G4Step.hh"
 #include "G4ThreeVector.hh"
 #include "G4SDManager.hh"
 #include "G4ios.hh"
-#include "HistoManager.hh"
+#include "G4EventManager.hh"
+#include "G4AnalysisManager.hh"
+#include <vector>
+#include <queue>
 
-//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <algorithm>
 
 TrackerSD::TrackerSD(const G4String& name, const G4String& hitsCollectionName) 
  : G4VSensitiveDetector(name),
    fHitsCollection(NULL)
 {
-  collectionName.insert(hitsCollectionName);
+    collectionName.insert(hitsCollectionName);
 }
-
-//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
 TrackerSD::~TrackerSD() 
 {}
 
-//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
-
 void TrackerSD::Initialize(G4HCofThisEvent* hce)
 {
-  // Create hits collection
-
-  fHitsCollection 
-    = new TrackerHitsCollection(SensitiveDetectorName, collectionName[0]); 
-
-  // Add this collection in hce
-
-  G4int hcID 
-    = G4SDManager::GetSDMpointer()->GetCollectionID(collectionName[0]);
-  hce->AddHitsCollection( hcID, fHitsCollection ); 
+    fHitsCollection = new TrackerHitsCollection(SensitiveDetectorName, collectionName[0]); 
+    G4int hcID = G4SDManager::GetSDMpointer()->GetCollectionID(collectionName[0]);
+    hce->AddHitsCollection(hcID, fHitsCollection);
+    
+    // Clear steps at the start of each event
+    fSteps.clear();
 }
 
-//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
-
-G4bool TrackerSD::ProcessHits(G4Step* aStep, G4TouchableHistory*)
+G4bool TrackerSD::ProcessHits(G4Step* step, G4TouchableHistory*)
 {  
-  G4AnalysisManager* analysis = G4AnalysisManager::Instance();
-
-  //energy deposit
-  G4double edep = aStep->GetTotalEnergyDeposit();
-
-  G4String partName = aStep->GetTrack()->GetParticleDefinition()->GetParticleName();
-  // If a gamma, then get the energy deposition of all secondary particles
-  if(partName=="gamma"){
-
-    G4double edep_gamma = aStep->GetTrack()->GetTotalEnergy() - edep;
-    G4int nSec = aStep->GetSecondary()->size();
-    bool fHit = true;
-    for(G4int i=0; i<nSec; i++){
-      G4Track* track = aStep->GetSecondary()->at(i);
-      if(track->GetParticleDefinition()->GetParticleName()=="gamma") edep_gamma -= track->GetTotalEnergy();
-      else 
-      fHit = true;
-    }
-    if(fHit) analysis->FillH1(12, edep_gamma);
-  }
-
-  if (edep==0.) return false;
-
-  if(partName=="alpha"){
-    analysis->FillH1(13, edep);
-  }
-
-  /*
-  G4String partName = aStep->GetTrack()->GetParticleDefinition()->GetParticleName();
-  if(partName=="e+" || "e-") analysis->FillH1(10, edep);
-  if(partName=="nu_e" || "anti_nu_e") analysis->FillH1(11, edep);
-  if(partName=="gamma") analysis->FillH1(12, edep);  
-  if(partName=="alpha")
-  {
-  	//fill histogram
-  	analysis->FillH1(13, edep);
-  	//fill ntuple
-  	//fHistoManager->FillNtuple(0, 0, edep);
-  }
-  if(partName=="ions") analysis->FillH1(14, edep);
-  */
-  
-  TrackerHit* newHit = new TrackerHit();
-
-  newHit->SetTrackID  (aStep->GetTrack()->GetTrackID());
-  newHit->SetChamberNb(aStep->GetPreStepPoint()->GetTouchableHandle()
-                                               ->GetCopyNumber());
-  newHit->SetEdep(edep);
-  newHit->SetPos (aStep->GetPostStepPoint()->GetPosition());
-
-  fHitsCollection->insert( newHit );
-
-  //newHit->Print();
-
-  return true;
+    G4double edep = step->GetTotalEnergyDeposit();
+    
+    // Create hit object
+    TrackerHit* newHit = new TrackerHit();
+    newHit->SetTrackID(step->GetTrack()->GetTrackID());
+    newHit->SetChamberNb(step->GetPreStepPoint()->GetTouchableHandle()->GetCopyNumber());
+    newHit->SetEdep(edep);
+    newHit->SetPos(step->GetPostStepPoint()->GetPosition());
+    fHitsCollection->insert(newHit);
+    
+    // Store step information
+    StepInfo info;
+    info.trackID = step->GetTrack()->GetTrackID();
+    info.parentID = step->GetTrack()->GetParentID();
+    info.edep = edep;
+    info.particleName = step->GetTrack()->GetParticleDefinition()->GetParticleName();
+    
+    fSteps.push_back(info);
+    
+    return true;
 }
 
-//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+G4double TrackerSD::CalculateTotalEnergy(G4int currentID, 
+                                       const std::map<G4int, std::vector<G4int>>& daughters,
+                                       const std::map<G4int, G4double>& energyDeposits) {
+    G4double totalEnergy = 0.0;
+    
+    // Add energy deposit of current particle
+    auto energyIt = energyDeposits.find(currentID);
+    if (energyIt != energyDeposits.end()) {
+        totalEnergy += energyIt->second;
+    }
+    
+    // Recursively add energy of all daughters
+    auto daughterIt = daughters.find(currentID);
+    if (daughterIt != daughters.end()) {
+        for (G4int daughterID : daughterIt->second) {
+            totalEnergy += CalculateTotalEnergy(daughterID, daughters, energyDeposits);
+        }
+    }
+    
+    return totalEnergy;
+}
 
 void TrackerSD::EndOfEvent(G4HCofThisEvent*)
 {
-  if ( verboseLevel>1 ) { 
-     G4int nofHits = fHitsCollection->entries();
-     G4cout << G4endl
-            << "-------->Hits Collection: in this event they are " << nofHits 
-            << " hits in the tracker chambers: " << G4endl;
-     for ( G4int i=0; i<nofHits; i++ ) (*fHitsCollection)[i]->Print();
-  }
-}
+    G4AnalysisManager* analysis = G4AnalysisManager::Instance();
+    
+    // Get max track ID
+    G4int maxTrackID = 0;
+    for (const auto& step : fSteps) {
+        maxTrackID = std::max(maxTrackID, step.trackID);
+    }
 
-//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+    // Create a lookup map for steps by trackID for quick access
+    std::unordered_map<G4int, const StepInfo*> trackMap;
+    for (const auto& step : fSteps) {
+        trackMap[step.trackID] = &step;
+    }
+
+    // Set of analyzed track IDs to avoid re-analysis
+    std::unordered_set<G4int> analyzedTracks;
+
+    // Recursive function to accumulate edep for a given trackID's secondaries
+    std::function<G4double(G4int)> accumulateEdep = [&](G4int trackID) -> G4double {
+        G4double totalEdep = 0.0;
+        
+       // Find all the dughters of the current track
+       // And do it recursively until all daughters are found
+        std::queue<G4int> toVisit;
+        toVisit.push(trackID);
+        while (!toVisit.empty()) {
+            G4int currentID = toVisit.front();
+            toVisit.pop();
+            
+            // Find the daughetrs
+            // So when the current ID is the parent ID of another track
+            // Then we add the energy deposition of the daughter to the total energy deposition
+            for (const auto& step : fSteps) {
+                // Check if in already analyzed
+                if (analyzedTracks.find(step.trackID) != analyzedTracks.end()) continue;
+                // Else check if the current ID is the parent ID of the step
+                if (step.parentID == currentID) {
+                    toVisit.push(step.trackID);
+                    analyzedTracks.insert(step.trackID);
+                    totalEdep += step.edep;
+                }
+            }
+        }
+        return totalEdep;
+    };
+
+    // Main loop to go through each track ID
+    for (G4int trackID = 0; trackID <= maxTrackID; ++trackID) {
+        // Check if the track is already analyzed
+        if (analyzedTracks.find(trackID) != analyzedTracks.end()) continue;
+
+        // Check if the trackID exists in trackMap
+        if (trackMap.find(trackID) != trackMap.end()) {
+            const auto& step = trackMap[trackID];
+            
+            // Check if particle is gamma or alpha
+            if (step->particleName == "gamma" || step->particleName == "alpha") {
+                analyzedTracks.insert(trackID);  // Mark the particle as analyzed
+
+                // Accumulate energy deposition including all secondaries
+                G4double totalEdep = step->edep + accumulateEdep(trackID);
+
+                // Store the result in the corresponding histogram
+                if (step->particleName == "gamma") {
+                    analysis->FillH1( 12, totalEdep );
+                } else if (step->particleName == "alpha") {
+                    analysis->FillH1( 13, totalEdep );
+                }
+            }
+        }
+    }
+    
+}

@@ -57,6 +57,7 @@ class DetectorConstruction : public G4VUserDetectorConstruction
     int fTupleID = -1; /// tuple ID for energy deposition output
   
     G4double fWorldSize;
+    G4double fShieldThickness;
 };
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......

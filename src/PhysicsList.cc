@@ -42,6 +42,10 @@
 #include "G4DeexPrecoParameters.hh"
 #include "G4NuclideTable.hh"
 
+// Livermore
+#include "G4EmLivermorePhysics.hh"
+#include "G4EmPenelopePhysics.hh"
+
 #include "G4EmStandardPhysics.hh"
 #include "G4EmExtraPhysics.hh"
 #include "G4EmParameters.hh"
@@ -89,8 +93,7 @@ PhysicsList::PhysicsList()
 
   //read new PhotonEvaporation data set 
   //
-  G4DeexPrecoParameters* deex = 
-    G4NuclearLevelData::GetInstance()->GetParameters();
+  G4DeexPrecoParameters* deex = G4NuclearLevelData::GetInstance()->GetParameters();
   deex->SetCorrelatedGamma(false);
   deex->SetStoreAllLevels(true);
   deex->SetIsomerProduction(true);  
@@ -190,9 +193,15 @@ void PhysicsList::ConstructProcess()
   G4EmStandardPhysics* emList = new G4EmStandardPhysics();
   G4EmParameters* param = G4EmParameters::Instance();
   param->SetAugerCascade(true);
-  param->SetStepFunction(1., 1*CLHEP::mm);
-  param->SetStepFunctionMuHad(1., 1*CLHEP::mm);
+  param->SetStepFunction(1, 0.11*CLHEP::mm);
+  param->SetStepFunctionMuHad(1., 0.1*CLHEP::mm);
   emList->ConstructProcess();
+
+//  G4EmPenelopePhysics* peList = new G4EmPenelopePhysics();
+//  param->SetAugerCascade(true);
+//  param->SetStepFunction(1., 0.1*CLHEP::mm);
+//  param->SetStepFunctionMuHad(1., 0.1*CLHEP::mm);
+//  peList->ConstructProcess();
 
   // Decay
   //G4DecayPhysics* decayList = new G4DecayPhysics();
@@ -204,8 +213,8 @@ void PhysicsList::ConstructProcess()
   
   // Hadron Inelastic physics
   G4HadronPhysicsFTFP_BERT* hadInelasList = new G4HadronPhysicsFTFP_BERT(verb);
-  ////G4HadronInelasticQBBC* hadInelasList = new G4HadronInelasticQBBC(verb);        
-  ////G4HadronPhysicsINCLXX* hadInelasList = new G4HadronPhysicsINCLXX(verb);
+//  G4HadronInelasticQBBC* hadInelasList = new G4HadronInelasticQBBC(verb);        
+//  G4HadronPhysicsINCLXX* hadInelasList = new G4HadronPhysicsINCLXX(verb);
   hadInelasList->ConstructProcess();
   
    // Ion Elastic scattering
@@ -219,9 +228,13 @@ void PhysicsList::ConstructProcess()
     
   // Gamma-Nuclear Physics
   G4EmExtraPhysics* gnuc = new G4EmExtraPhysics(verb);
-  gnuc->ElectroNuclear(false);
-  gnuc->MuonNuclear(false);
+  gnuc->ElectroNuclear(true);
+  gnuc->MuonNuclear(true);
   gnuc->ConstructProcess();
+
+  // Livermore EM physics
+//  G4EmLivermorePhysics* livermore = new G4EmLivermorePhysics();
+//  livermore->ConstructProcess();
   
 }
 
@@ -230,6 +243,12 @@ void PhysicsList::ConstructProcess()
 void PhysicsList::SetCuts()
 {
   SetCutsWithDefault();
+  // Cuts for gamma
+  SetCutValue(0.1*mm, "proton");
+  SetCutValue(0.1*mm, "e-");
+  SetCutValue(0.1*mm, "e+");
+  SetCutValue(0.1*mm, "gamma");  
+//  SetCutValue(1*mm, "alpha");
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......

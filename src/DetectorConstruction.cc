@@ -23,12 +23,6 @@
 // * acceptance of all terms of the Geant4 Software license.          *
 // ********************************************************************
 //
-/// \file DetectorConstruction.cc
-/// \brief Implementation of the DetectorConstruction class
-//
-// 
-//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
-//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 #include "DetectorConstruction.hh"
 #include "TrackingMessenger.hh"
 #include "TrackerHit.hh"
@@ -42,6 +36,7 @@
 #include "G4Tubs.hh"
 #include "G4LogicalVolume.hh"
 #include "G4PVPlacement.hh"
+#include "G4SubtractionSolid.hh"
 #include "G4GlobalMagFieldMessenger.hh"
 #include "G4AutoDelete.hh"
 
@@ -54,33 +49,23 @@
 #include "G4Colour.hh"
 
 #include "G4SystemOfUnits.hh"
+#include "G4PhysicalConstants.hh"
 
 #include "Analysis.hh"
-
-#include "G4PSEnergyDeposit.hh"
-
-//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
 DetectorConstruction::DetectorConstruction()
  : G4VUserDetectorConstruction()
 {
   fWorldSize = .3*m;
+  fShieldThickness = 15*cm;  // Default shield thickness
 }
-
-//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
 DetectorConstruction::~DetectorConstruction()
 {}
 
-//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
-
-const int n_crystals = 1;
-
 G4VPhysicalVolume* DetectorConstruction::Construct()
 {
-  //
-  // Define the dimensions of the NaI crystal and its surrounding parts.
-  //
+  // Define the dimensions of the NaI crystal and its surrounding parts
   const auto body_length = 254*mm;
   const auto body_side = 109*mm;
   const auto body_thickness = 1*mm;
@@ -103,93 +88,106 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
   const auto quartz_side = crystal_side;
   const auto quartz_length = 12.5*mm;
   
-  //
-  // Define the materials used in the NaI scintillator detector. 
-  //   
-  G4NistManager *nist = G4NistManager::Instance();
+  // Define materials
+  G4NistManager* nist = G4NistManager::Instance();
   
+  G4Material* matPb = nist->FindOrBuildMaterial("G4_Pb");
   G4Material* matAl = nist->FindOrBuildMaterial("G4_Al");
   G4Material* matNaI = nist->FindOrBuildMaterial("G4_SODIUM_IODIDE");
   G4Material* matQuartz = nist->FindOrBuildMaterial("G4_SILICON_DIOXIDE");
   G4Material* matMylar = nist->FindOrBuildMaterial("G4_MYLAR");
   G4Material* matAir = nist->FindOrBuildMaterial("G4_AIR");
-  G4Material* matGalactic = nist->FindOrBuildMaterial("G4_Galactic");
   
-  //     
-  // Define the 'World' volume. 
-  //
-  G4Box* solidWorld = new G4Box("World", fWorldSize/2, fWorldSize/2, fWorldSize/2);                
-  G4LogicalVolume* logicWorld = new G4LogicalVolume(solidWorld, matAir, "logicWorld");
-  G4VPhysicalVolume* physiWorld = new G4PVPlacement(0, G4ThreeVector(), logicWorld, "World", 0, false, 0); 
+  // Calculate shield dimensions
+  const auto maxDetectorDim = std::max(crystal_side, crystal_length);
+  const auto shieldSide = maxDetectorDim + 2*fShieldThickness;
+  const auto shieldLength = crystal_length + quartz_length + SiPM_length + 
+                           base_length + support_length + 2*fShieldThickness;
+
+  // Create world volume
+  const auto worldSize = std::max(fWorldSize, 2.2 * std::max(shieldSide, shieldLength));
+  G4Box* solidWorld = new G4Box("World", worldSize/2, worldSize/2, worldSize/2);
+  G4LogicalVolume* logicWorld = new G4LogicalVolume(solidWorld, matAir, "World");
+  G4VPhysicalVolume* physiWorld = new G4PVPlacement(0, G4ThreeVector(), 
+                                                   logicWorld, "World", 0, false, 0);
+
+  // Create lead shield
+  G4Box* solidShieldOuter = new G4Box("shieldOuter", 
+                                     shieldSide/2, shieldSide/2, shieldLength/2);
+  G4Box* solidShieldInner = new G4Box("shieldInner", 
+                                     (shieldSide - 2*fShieldThickness)/2,
+                                     (shieldSide - 2*fShieldThickness)/2,
+                                     (shieldLength - 2*fShieldThickness)/2);
   
-  //
-  // Define the NaI solid volumes. 
-  //  
-  //G4Box *solidBody_outer_total = new G4Box("Body_outer_total", body_side*0.5, body_side*0.5, body_length*0.5);
-  //G4Box *solidBody_inner = new G4Box("Body_inner", body_inner_side*0.5, body_inner_side*0.5, body_inner_length*0.5);
-  //G4Box *solidBody_outer = new G4Box("Body_outer", solidBody_outer_total, solidBody_inner);
-  G4Box *solidCrystal = new G4Box("solidCrystal", crystal_side*0.5, crystal_side*0.5, crystal_length*0.5);
-  G4Box *solidQuartz = new G4Box("solidQuartz", quartz_side*0.5, quartz_side*0.5, quartz_length*0.5);
-  G4Box *solidSiPM = new G4Box("soliddSiPM", SiPM_side*0.5, SiPM_side*0.5, SiPM_length*0.5);
-  G4Box *solidBase = new G4Box("solidBase", base_side*0.5, base_side*0.5, base_length*0.5);
-  G4Box *solidSupport = new G4Box("solidSupport", support_side*0.5, support_side*0.5, support_length*0.5);
+  G4SubtractionSolid* solidShield = new G4SubtractionSolid("shield",
+                                                          solidShieldOuter,
+                                                          solidShieldInner);
   
-  //
-  // Define the NaI logical volumes. 
-  //
-  G4LogicalVolume* logicCrystal = new G4LogicalVolume(solidCrystal, matNaI, "logicCrystal");
-  G4LogicalVolume* logicQuartz = new G4LogicalVolume(solidQuartz, matQuartz, "logicQuartz");
-  G4LogicalVolume* logicSiPM = new G4LogicalVolume(solidSiPM, matAl, "logicSiPM");
-  G4LogicalVolume* logicBase = new G4LogicalVolume(solidBase, matMylar, "logicBase");
-  G4LogicalVolume* logicSupport = new G4LogicalVolume(solidSupport, matAl, "logicSupport");
+  G4LogicalVolume* logicShield = new G4LogicalVolume(solidShield, matPb, "Shield");
+
+  // Create detector components
+  G4Box* solidCrystal = new G4Box("Crystal", 
+                                 crystal_side/2, crystal_side/2, crystal_length/2);
+  G4Box* solidQuartz = new G4Box("Quartz", 
+                                quartz_side/2, quartz_side/2, quartz_length/2);
+  G4Box* solidSiPM = new G4Box("SiPM", 
+                              SiPM_side/2, SiPM_side/2, SiPM_length/2);
+  G4Box* solidBase = new G4Box("Base", 
+                              base_side/2, base_side/2, base_length/2);
+  G4Box* solidSupport = new G4Box("Support", 
+                                 support_side/2, support_side/2, support_length/2);
+
+  // Create logical volumes
+  G4LogicalVolume* logicCrystal = new G4LogicalVolume(solidCrystal, matNaI, "Crystal");
+  G4LogicalVolume* logicQuartz = new G4LogicalVolume(solidQuartz, matQuartz, "Quartz");
+  G4LogicalVolume* logicSiPM = new G4LogicalVolume(solidSiPM, matAl, "SiPM");
+  G4LogicalVolume* logicBase = new G4LogicalVolume(solidBase, matMylar, "Base");
+  G4LogicalVolume* logicSupport = new G4LogicalVolume(solidSupport, matAl, "Support");
+
+  // Set visualization attributes
+  logicShield->SetVisAttributes(G4VisAttributes(G4Colour::Gray()));
+  logicCrystal->SetVisAttributes(G4VisAttributes(G4Colour::Cyan()));
+  logicQuartz->SetVisAttributes(G4VisAttributes(G4Colour::Red()));
+  logicSiPM->SetVisAttributes(G4VisAttributes(G4Colour::Brown()));
+  logicSupport->SetVisAttributes(G4VisAttributes(G4Colour::Yellow()));
+  logicBase->SetVisAttributes(G4VisAttributes(G4Colour::Magenta()));
+
+  // Place the shield
+  new G4PVPlacement(0, G4ThreeVector(0., 0., 0.), 
+                    logicShield, "Shield", logicWorld, false, 0, true);
+
+  // Define component positions relative to shield center
+  const auto sep = 1*um;  // Small separation to avoid overlap
+  const auto crystal_z = 0.0;  // Center crystal in shield
+  const auto quartz_z = -(crystal_length/2 + quartz_length/2 + sep);
+  const auto SiPM_z = -(crystal_length/2 + quartz_length + SiPM_length/2 + sep);
+  const auto base_z = (crystal_length/2 + base_length/2 + sep);
+  const auto support_z = (crystal_length/2 + base_length + support_length/2 + sep);
+
+  // Place detector components
+  new G4PVPlacement(0, G4ThreeVector(0, 0, crystal_z), 
+                    logicCrystal, "Crystal", logicWorld, false, 0, true);
   
-  	//
-  	// Define visualization attributes of NaI detector components. 
-	//
-	//logicBody_outer->SetVisAttributes(G4VisAttributes(G4Colour::Green()));
-	//logicBody_inner->SetVisAttributes(G4VisAttributes(G4Colour::Yellow()));
-	logicCrystal->SetVisAttributes(G4VisAttributes(G4Colour::Cyan()));
-	logicQuartz->SetVisAttributes(G4VisAttributes(G4Colour::Red()));
-	logicSiPM->SetVisAttributes(G4VisAttributes(G4Colour::Brown()));
-	logicSupport->SetVisAttributes(G4VisAttributes(G4Colour::Yellow()));
-	logicBase->SetVisAttributes(G4VisAttributes(G4Colour::Magenta()));
+  new G4PVPlacement(0, G4ThreeVector(0, 0, quartz_z), 
+                    logicQuartz, "Quartz", logicWorld, false, 0, true);
   
-  //
-  // Define the NaI physical volumes. 
-  //
+  new G4PVPlacement(0, G4ThreeVector(0, 0, SiPM_z), 
+                    logicSiPM, "SiPM", logicWorld, false, 0, true);
   
-  	//
-  	// Before placing, define some spatial constants. 
-  	//
-  	const auto sep = 1*um;
-      	const auto body_z = -body_length*0.5;
-      	const auto base_z = -1*(-body_inner_length*0.5 + base_length*0.5 + sep);
-      	const auto support_z = -1*(-body_inner_length*0.5 + base_length + support_length*0.5 + sep);
-      	const auto crystal_z = -1*(-body_inner_length*0.5 + base_length + support_length + crystal_length*0.5 + sep);
-      	const auto quartz_z = -1*(-body_inner_length*0.5 + base_length + support_length + crystal_length + quartz_length*0.5 + sep);
-      	const auto SiPM_z = -1*(-body_inner_length*0.5 + base_length + support_length + crystal_length + quartz_length + SiPM_length*0.5 					+ sep);
+  new G4PVPlacement(0, G4ThreeVector(0, 0, base_z), 
+                    logicBase, "Base", logicWorld, false, 0, true);
   
-  G4VPhysicalVolume* physiCrystal = new G4PVPlacement(0, G4ThreeVector(), logicCrystal, "physiWorld", logicWorld, false, 0, true); 
-  G4VPhysicalVolume* physiQuartz = new G4PVPlacement(0, G4ThreeVector(0., 0., -(crystal_length*0.5 + quartz_length*0.5)), logicQuartz, 						"physiWorld", logicWorld, false, 0, true); 
-  G4VPhysicalVolume* physiSiPM = new G4PVPlacement(0, G4ThreeVector(0., 0., -(crystal_length*0.5 + quartz_length + SiPM_length*0.5)), 					logicSiPM, "physiSiPM", logicWorld, false, 0, true); 
-  G4VPhysicalVolume* physiBase = new G4PVPlacement(0, G4ThreeVector(0., 0., crystal_length*0.5 + support_length + base_length*0.5), 						logicBase, "physiWorld", logicWorld, false, 0, true); 
-  G4VPhysicalVolume* physiSupport = new G4PVPlacement(0, G4ThreeVector(0., 0., crystal_length*0.5 + support_length*0.5), logicSupport, 						"physiWorld", logicWorld, false, 0, true); 
-                
-  //
-  // Always return the physical World.
-  //  
+  new G4PVPlacement(0, G4ThreeVector(0, 0, support_z), 
+                    logicSupport, "Support", logicWorld, false, 0, true);
+
   return physiWorld;
 }
 
-//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 void DetectorConstruction::ConstructSDandField()
 {
   // Sensitive detectors
-
   G4String trackerChamberSDname = "rdecay01/TrackerChamberSD";
   TrackerSD* aTrackerSD = new TrackerSD(trackerChamberSDname, "TrackerHitsCollection");
   G4SDManager::GetSDMpointer()->AddNewDetector(aTrackerSD);
-  // Setting aTrackerSD to all logical volumes with the same name of "Chamber_LV".
-  SetSensitiveDetector("logicCrystal", aTrackerSD, true);
+  SetSensitiveDetector("Crystal", aTrackerSD, true);
 }
-

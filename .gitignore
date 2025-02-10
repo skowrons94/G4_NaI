@@ -1,5 +1,12 @@
 # Ignore build directory
 build/
+data/
+analysis/
+.vscode/
+
+# Ignore all .root and .pk files
+**.root
+**.pkl
 
 # Ignore all DS_Store files
 .DS_Store

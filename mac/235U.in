@@ -9,9 +9,9 @@
 /rdecay01/fullChain true
 
 /gun/particle ion
-/gun/ion 90 232
+/gun/ion 92 235
 
-/analysis/setFileName 232Th.root
+/analysis/setFileName 235U.root
 /analysis/h1/set 1  1000  0. 4000 keV	#e+ e-
 /analysis/h1/set 2  1000  0. 4000 keV	#neutrino
 /analysis/h1/set 3  1000  0. 4000 keV	#gamma
@@ -27,5 +27,5 @@
 /analysis/h1/set 14  2000  0  20   MeV	#EkinTot (Q)
 /analysis/h1/set 15  2000  0  20   MeV	#EkinTot (Q)
 
-/run/printProgress 10000
+/run/printProgress 1000
 /run/beamOn 1000000

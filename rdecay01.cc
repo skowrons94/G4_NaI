@@ -33,11 +33,11 @@
 
 #include "G4Types.hh"
 
-#ifdef G4MULTITHREADED
-#include "G4MTRunManager.hh"
-#else
+//#ifdef G4MULTITHREADED
+//#include "G4MTRunManager.hh"
+//#else
 #include "G4RunManager.hh"
-#endif
+//#endif
 
 #include "G4UImanager.hh"
 #include "Randomize.hh"
@@ -61,14 +61,14 @@ int main(int argc,char** argv) {
   CLHEP::HepRandom::setTheEngine(new CLHEP::RanecuEngine);
 
   //construct the default run manager
-#ifdef G4MULTITHREADED
-  G4MTRunManager* runManager = new G4MTRunManager;
-  runManager->SetNumberOfThreads(std::min(4,G4Threading::G4GetNumberOfCores()));
-#else
+//#ifdef G4MULTITHREADED
+//  G4MTRunManager* runManager = new G4MTRunManager;
+//  runManager->SetNumberOfThreads(std::min(4,G4Threading::G4GetNumberOfCores()));
+//#else
   //my Verbose output class
   G4VSteppingVerbose::SetInstance(new SteppingVerbose);
   G4RunManager* runManager = new G4RunManager;
-#endif
+//#endif
 
   //set mandatory initialization classes
   //

@@ -87,11 +87,20 @@ void PrimaryGeneratorAction::GeneratePrimaries(G4Event* anEvent)
   G4double random_x = (crystal_side*x)*mm - crystal_side/2.0*mm;
   G4double random_y = (crystal_side*y)*mm - crystal_side/2.0*mm;
   G4double random_z = (crystal_length*z)*mm - crystal_length/2.0*mm;
+
+  // In aluminum
+//  G4double random_x = (crystal_side)*mm - crystal_side/2.0*mm;
+//  G4double random_y = (crystal_side*y)*mm - crystal_side/2.0*mm;
+//  G4double random_z = (crystal_length*z)*mm - crystal_length/2.0*mm;
   
-  fParticleGun->SetParticlePosition(G4ThreeVector(random_x*mm, random_y*mm, random_z*mm));
+  //fParticleGun->SetParticlePosition(G4ThreeVector(random_x*mm, random_y*mm, random_z*mm));
+  fParticleGun->SetParticlePosition(G4ThreeVector(0, 0, 140 * mm));
   fParticleGun->SetParticleMomentumDirection(G4RandomDirection());  
+  fParticleGun->SetParticleEnergy(0*eV); 
+
+//  fParticleGun->SetParticlePosition(G4ThreeVector(100*mm, 100*mm, 100*mm));
+
   //create vertex
-  // 
   fParticleGun->GeneratePrimaryVertex(anEvent);
 }
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
