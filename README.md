@@ -1,7 +1,7 @@
 # G4_NaI - NaI Detector Background Simulation
 
 [![Geant4](https://img.shields.io/badge/Simulation-GEANT4-009688?logo=gnu)](https://geant4.web.cern.ch)
-[![License](https://img.shields.io/github/license/skowrons94/G4_NaI)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Geant4 simulation for characterizing internal background in Scionix NaI(Tl) detectors used in nuclear astrophysics experiments at the [LUNA (Laboratory for Underground Nuclear Astrophysics)](https://luna.lngs.infn.it) laboratory.
 
@@ -51,7 +51,3 @@ In alternative, run the ```run.py``` script to simulate all the different radioi
 
 Example macros:
 - `vis.mac` - Visualization mode
-
-## License
-
-Distributed under the GNU General Public License v3.0. See `LICENSE` for details.
