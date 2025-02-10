@@ -46,8 +46,8 @@ target_link_libraries(rdecay01 ${Geant4_LIBRARIES} )
 # Copy the mac/ folder to build/
 file(COPY ${PROJECT_SOURCE_DIR}/mac/ DESTINATION ${PROJECT_BINARY_DIR}/mac/)
 
-# Copy the analysis/ folder to build/
-file(COPY ${PROJECT_SOURCE_DIR}/analysis/ DESTINATION ${PROJECT_BINARY_DIR})
+# Copy run.py script to build/
+file(COPY ${PROJECT_SOURCE_DIR}/run.py DESTINATION ${PROJECT_BINARY_DIR}/)
 
 #----------------------------------------------------------------------------
 # Install the executable to 'bin' directory under CMAKE_INSTALL_PREFIX
